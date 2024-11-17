@@ -12,8 +12,13 @@ from sanic import HTTPResponse, Request, Sanic
 from sanic.models.handler_types import RouteHandler
 from sanic_routing import Route
 
-from dishka import AsyncContainer, FromDishka, Provider, Scope, from_context
-from dishka.integrations.base import is_dishka_injected, wrap_injection
+from dishka import AsyncContainer, Provider, Scope, from_context
+from dishka.integrations.base import (
+    FromDishka,
+    InjectDecorator,
+    is_dishka_injected,
+    wrap_injection,
+)
 
 
 def inject(func: RouteHandler) -> RouteHandler:
@@ -43,10 +48,13 @@ class ContainerMiddleware:
         await request.ctx.dishka_container.close()
 
 
-def _inject_routes(routes: Iterable[Route]) -> None:
+def _inject_routes(
+    routes: Iterable[Route],
+    inject_decorator: InjectDecorator = inject,
+) -> None:
     for route in routes:
         if not is_dishka_injected(route.handler):
-            route.handler = inject(route.handler)
+            route.handler = inject_decorator(route.handler)
 
 
 def setup_dishka(
@@ -54,12 +62,13 @@ def setup_dishka(
     app: Sanic[Any, Any],
     *,
     auto_inject: bool = False,
+    inject_decorator: InjectDecorator = inject,
 ) -> None:
     middleware = ContainerMiddleware(container)
     app.on_request(middleware.on_request)
     app.on_response(middleware.on_response)  # type: ignore[no-untyped-call]
 
     if auto_inject:
-        _inject_routes(app.router.routes)
+        _inject_routes(app.router.routes, inject_decorator)
         for blueprint in app.blueprints.values():
-            _inject_routes(blueprint.routes)
+            _inject_routes(blueprint.routes, inject_decorator)

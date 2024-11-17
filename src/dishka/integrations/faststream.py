@@ -17,7 +17,7 @@ from faststream.types import DecodedMessage
 from faststream.utils.context import ContextRepo
 
 from dishka import AsyncContainer, FromDishka, Provider, Scope, from_context
-from dishka.integrations.base import wrap_injection
+from dishka.integrations.base import InjectDecorator, wrap_injection
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -29,6 +29,14 @@ class FastStreamProvider(Provider):
 
 
 FASTSTREAM_OLD_MIDDLEWARES = __version__ < "0.5"
+
+
+def inject(func: Callable[P, T]) -> Callable[P, T]:
+    return wrap_injection(
+        func=func,
+        is_async=True,
+        container_getter=lambda *_: context.get_local("dishka"),
+    )
 
 
 class _DishkaBaseMiddleware(BaseMiddleware):
@@ -85,6 +93,7 @@ def setup_dishka(
         *,
         finalize_container: bool = True,
         auto_inject: bool = False,
+        inject_decorator: InjectDecorator = inject,
 ) -> None:
     assert app.broker, "You can't patch FastStream application without broker"  # noqa: S101
 
@@ -128,14 +137,6 @@ or use @inject at each subscriber manually.
 
         if auto_inject:
             app.broker._call_decorators = (  # noqa: SLF001
-                inject,
+                inject_decorator,
                 *app.broker._call_decorators,  # noqa: SLF001
             )
-
-
-def inject(func: Callable[P, T]) -> Callable[P, T]:
-    return wrap_injection(
-        func=func,
-        is_async=True,
-        container_getter=lambda *_: context.get_local("dishka"),
-    )

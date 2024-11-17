@@ -34,6 +34,7 @@ DependsClass: TypeAlias = cast(
     type | Sequence[type],
     FromDishka | _FromComponent,
 )
+InjectDecorator: TypeAlias = Callable[[Callable[..., Any]], Any]
 
 
 def default_parse_dependency(

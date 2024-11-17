@@ -17,7 +17,11 @@ from aiohttp.web_request import Request
 from aiohttp.web_response import StreamResponse
 
 from dishka import AsyncContainer, FromDishka, Provider, Scope, from_context
-from dishka.integrations.base import is_dishka_injected, wrap_injection
+from dishka.integrations.base import (
+    InjectDecorator,
+    is_dishka_injected,
+    wrap_injection,
+)
 
 T = TypeVar("T")
 DISHKA_CONTAINER_KEY: Final = web.AppKey("dishka_container", AsyncContainer)
@@ -65,22 +69,28 @@ async def container_middleware(
         return await handler(request)
 
 
-def _inject_routes(router: web.UrlDispatcher) -> None:
+def _inject_routes(
+    router: web.UrlDispatcher,
+    inject_decorator: InjectDecorator,
+) -> None:
     for route in router.routes():
-        _inject_route(route)
+        _inject_route(route, inject_decorator)
 
     for resource in router.resources():
         for route in resource._routes:  # type: ignore[attr-defined] # noqa: SLF001
-            _inject_route(route)
+            _inject_route(route, inject_decorator)
 
 
-def _inject_route(route: web.AbstractRoute) -> None:
+def _inject_route(
+    route: web.AbstractRoute,
+    inject_decorator: InjectDecorator,
+) -> None:
     if not is_dishka_injected(route.handler):
         # typing.cast is used because AbstractRoute._handler
         # is Handler or Type[AbstractView]
         route._handler = cast( # noqa: SLF001
             AiohttpHandler,
-            inject(route.handler),
+            inject_decorator(route.handler),
         )
 
 
@@ -93,10 +103,11 @@ def setup_dishka(
     app: Application,
     *,
     auto_inject: bool = False,
+    inject_decorator: InjectDecorator = inject,
 ) -> None:
     app[DISHKA_CONTAINER_KEY] = container
     app.middlewares.append(container_middleware)
     app.on_shutdown.append(_on_shutdown)
 
     if auto_inject:
-        _inject_routes(app.router)
+        _inject_routes(app.router, inject_decorator)
