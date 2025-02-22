@@ -13,6 +13,7 @@ from dishka.integrations.litestar import (
     FromDishka,
     inject,
     setup_dishka,
+    DishkaRouter
 )
 from ..common import (
     APP_DEP_VALUE,
@@ -29,8 +30,11 @@ async def dishka_app(
         provider,
         request_class: type[Request] = Request,
 ) -> TestClient:
-    app = litestar.Litestar(request_class=request_class)
-    app.register(get("/")(inject(view)))
+    dishka_router = DishkaRouter('', route_handlers=[])
+    dishka_router.register(get("/")(view))
+
+    app = litestar.Litestar(route_handlers=[dishka_router], request_class=request_class)
+    # app.register(get("/")(inject(view)))
     app.register(websocket_listener("/ws")(websocket_handler))
     container = make_async_container(provider)
     setup_dishka(container, app)

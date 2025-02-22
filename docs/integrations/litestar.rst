@@ -22,6 +22,7 @@ How to use
         LitestarProvider,
         inject,
         setup_dishka,
+        DishkaRouter,
     )
     from dishka import make_async_container, Provider, provide, Scope
 
@@ -45,6 +46,19 @@ How to use
         request: str, gateway: FromDishka[Gateway],
     ) -> Response:
         ...
+
+3a. *(optional)* Set route class to each of your fastapi routers to enable automatic injection (it works only for HTTP, not for websockets)
+
+.. code-block:: python
+
+    @router.get('/')
+    async def endpoint(
+        request: str, gateway: FromDishka[Gateway],
+    ) -> Response:
+        ...
+
+    r = DishkaRouter('', route_handlers=[endpoint])
+    app = Litestar(route_handlers=[r])
 
 
 4. *(optional)* Use ``LitestarProvider()`` when creating container if you are going to use ``litestar.Request`` in providers.

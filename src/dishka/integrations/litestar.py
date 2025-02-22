@@ -10,7 +10,7 @@ from collections.abc import Callable
 from inspect import Parameter
 from typing import ParamSpec, TypeVar, get_type_hints
 
-from litestar import Litestar, Request, WebSocket
+from litestar import Litestar, Request, WebSocket, Router
 from litestar.enums import ScopeType
 from litestar.types import ASGIApp, Receive, Scope, Send
 
@@ -93,3 +93,9 @@ def setup_dishka(container: AsyncContainer, app: Litestar) -> None:
         app.asgi_handler,
     )
     app.state.dishka_container = container
+
+
+class DishkaRouter(Router):
+    def register(self, value):
+        value._fn = inject(value._fn)
+        return super().register(value)
