@@ -89,6 +89,19 @@ def test_change_component():
     assert container.get(int, component="Y") == 20
 
 
+class ToComponentComponentNameProvider(Provider):
+    scope = Scope.APP
+    @provide
+    def my_component(self) -> str:
+        return self.component
+
+def test_change_component_access():
+    provider = ToComponentComponentNameProvider(component="start")
+    container = make_container(provider, provider.to_component("other"))
+    assert container.get(str, component="start") == "start"
+    assert container.get(str, component="other") == "other"
+
+
 def test_set_component():
     container = make_container(SingleProvider(20, component="Y"))
     assert container.get(int, component="Y") == 20
