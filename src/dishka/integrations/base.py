@@ -1,3 +1,4 @@
+import inspect
 from collections.abc import Awaitable, Callable, Sequence
 from inspect import (
     Parameter,
@@ -96,9 +97,15 @@ def wrap_injection(
     func_signature = signature(func)
 
     dependencies = {}
-    for name, param in func_signature.parameters.items():
-        hint = hints.get(name, Any)
-        dep = parse_dependency(param, hint)
+    for index, (name, param) in enumerate(func_signature.parameters.items()):
+        if name == "self" and index == 0:
+            # If it's a method in a class, by the time this is run the class
+            # hasn't been created yet, and inspection would fail. So,
+            # postpone it.
+            dep = DependencyKey(func, DEFAULT_COMPONENT)
+        else:
+            hint = hints.get(name, Any)
+            dep = parse_dependency(param, hint)
         if dep is None:
             continue
         dependencies[name] = dep
@@ -185,6 +192,11 @@ def _async_injection_wrapper(
             container = container_getter(args, kwargs)
             for param in additional_params:
                 kwargs.pop(param.name)
+
+            if (dep := dependencies.get("self")) and dep.type_hint == func:
+                klass = inspect._findclass(dep.type_hint)  # noqa: SLF001
+                dependencies["self"] = DependencyKey(klass, dep.component)
+
             solved = {
                 name: await container.get(
                     dep.type_hint, component=dep.component,
@@ -198,6 +210,11 @@ def _async_injection_wrapper(
             container = container_getter(args, kwargs)
             for param in additional_params:
                 kwargs.pop(param.name)
+
+            if (dep := dependencies.get("self")) and dep.type_hint == func:
+                klass = inspect._findclass(dep.type_hint)  # noqa: SLF001
+                dependencies["self"] = DependencyKey(klass, dep.component)
+
             solved = {
                 name: await container.get(
                     dep.type_hint, component=dep.component,
